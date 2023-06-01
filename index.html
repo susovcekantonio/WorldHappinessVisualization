@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>World Happiness</title>
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <script src="http://d3js.org/topojson.v1.min.js"></script>
+
+  <style>        
+    #year-select{
+      margin-bottom: 5px;
+    }
+
+    h1{
+      text-align: center;
+    }
+
+    h2{
+      text-align: center;
+    }
+
+    #country-world-container {
+      width: 50%;
+      height: 800px;
+      background-color: #add8e6;
+      float: left;
+      margin-right: 1%;
+    }
+
+    #country-worldmap {
+      width: 100%;
+      height: 100%;
+    }
+
+    #country-pie-container {
+      width: 49%;
+      height: 400px;
+      float:right;
+    }
+
+    #country-pie-chart {
+      width: 100%;
+      height: 100%;
+    }
+
+    #bar-chart-container {
+      width: 49%;
+      height: 400px;
+      float:right;
+    }
+
+    #country-bar-chart{
+      width: 100%;
+      height: 100%;
+    }
+
+  </style>
+</head>
+<body>
+    <h1>World Happiness</h1>
+
+    <div>
+      <label for="year-select">Select Year:</label>
+      <select id="year-select"></select>
+    </div>
+
+    <div id="country-world-container">
+      <svg id="country-worldmap"></svg>
+    </div>
+
+    <div id="country-pie-container">
+      <h2>Distribution of Happiness Score components</h2>
+      <svg id="country-pie-chart"></svg>
+    </div>
+
+    <div id="bar-chart-container">
+      <svg id="country-bar-chart"></svg>
+    </div>
+
+    <script>
+      var width = 1500;
+      var height = 800;
+      var pieCounter = 0;
+      var colors = ["#ed1909", "#eda807", "#faf60f", "#b8ed1a", "#05eb1c"];
+          
+      const yearSelect = document.getElementById('year-select');
+      const years = ["2015", "2016","2017","2018","2019"];
+
+      const legendValues = ["1. Very unhappy", "2. Unhappy", "3. Neutral","4. Happy", "5. Very happy"]
+
+      years.forEach(year => {
+        const option = document.createElement('option');
+        option.value = year;
+        option.text = year;
+        yearSelect.appendChild(option);
+    });
+
+
+      yearSelect.addEventListener('change', function() {
+        const selectedYear = this.value;
+        d3.select("#country-worldmap").text("");
+        updateWorldMap(selectedYear);
+      });
+ 
+      
+      updateWorldMap(years[0]);
+
+
+      function updateWorldMap(selectedYear){     
+        d3.json("world.json", function(error, world) {
+            d3.json(`${selectedYear}.json`, function(error, happinessData) {
+                const countries = topojson.feature(world, world.objects.countries1);
+               
+                var projection = d3.geo.mercator()
+                                .scale(150)
+                                .translate([width/3.25, height/1.75]);
+
+                var path = d3.geo.path()
+                           .projection(projection);
+
+                var svg = d3.select("#country-worldmap").append("svg")
+                          .attr("width", width)
+                          .attr("height", height)
+                          .call(d3.behavior.zoom().scaleExtent([1, 10])
+                          .on("zoom", onZoom))
+                          .append("g"); 
+                
+                var states = svg.selectAll("path.county")
+                            .data(countries.features)
+                            .enter()
+                            .append("path")
+                            .attr("class", "county")
+                            .attr("id", function(d) { return d.id; })
+                            .attr("d", path) 
+                            .style("fill", function(d) {
+                              const country = happinessData.find(item => item.Country=== d.properties.name);
+                              
+                              if(typeof country !== 'undefined'){
+                                var happinessScore = parseFloat(country["Happiness Score"]);                                                                                            
+                                return fillColor(happinessScore);
+                              }
+                              else{
+                                return "black";
+                              }
+                            })
+                            .style("stroke", "gray")
+                            .style("stroke-width", 1)
+                            .style("stroke-opacity", 1)
+                            .on("mouseover",function(d){
+                                d3.select(this).style("opacity", 0.5); 
+                            })
+                            .on("mouseout", function(d) {
+                                d3.select(this).style("opacity", 1);
+                            })
+                            .on("click", function(d) {  
+                                const country = happinessData.find(item => item.Country=== d.properties.name);
+                                if(typeof country === 'undefined'){
+                                  alert("No data on country!"); 
+                                }
+                                createPieChart(country,selectedYear);   
+                                if(pieCounter===1){
+                                  pie1Data = country;
+                                }     
+                                if(pieCounter===2){
+                                  pie2Data = country;
+                                  createBarChart(pie1Data,pie2Data);
+                                }               
+
+                            })   
+
+                const legend = svg.append('g');
+                const diameter = 15;
+                const textWidth = 210;
+                const space = 2;
+                const rectWidth = diameter + textWidth + space * 5;
+                const rectHeight = 110;
+              
+
+                legend.append("rect")
+                      .attr("x", "10")
+                      .attr("y", "675")
+                      .attr('rx', 16)
+                      .attr("width", rectWidth)
+                      .attr("height", rectHeight)
+                      .attr("style", "stroke: black; stroke-width: 1; fill: white; opacity: 0.7; stroke-opacity: 1");
+
+                legend.append('text')
+                      .attr("x", 40)
+                      .attr("y", 690)
+                      .attr("dy", ".25em")
+                      .attr('font-family', 'sans-serif')
+                      .text("Happiness within country");
+
+                for (let i = 0; i < colors.length; i++) {
+                  legend.append("circle")
+                        .attr("cx", "25")
+                        .attr("cy", d => 690 + 16 * (i + 1))
+                        .attr("r", "5")
+                        .attr("fill", d => colors[i])
+
+                  legend.append('text')
+                        .attr("x", "35")
+                        .attr("y", 695 + 15 * (i + 1))
+                        .attr("dy", ".25em")
+                        .attr('font-family', 'sans-serif')
+                        .text(d => legendValues[i]);
+                }     
+                function onZoom() {
+                    svg.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+                }
+            });           
+        });
+      }
+                                       
+       
+      function fillColor(happinessScore){               
+        if(happinessScore<3){
+          return colors[0];
+        }
+        else if(happinessScore>=3 && happinessScore<4.5){
+          return colors[1];
+        }
+        else if(happinessScore>=4.5 && happinessScore<6){
+          return colors[2];
+        }
+        else if(happinessScore>=6 && happinessScore<7.5){
+          return colors[3];
+        }
+        else{
+          return colors[4];
+        }
+      }
+
+      function createPieChart(data,selectedYear) {
+        var pieWidth = 300;
+        var pieHeight = 400;
+    
+        const score = parseFloat(data["Happiness Score"]).toFixed(2);      
+        const economy = parseFloat(data["Economy (GDP per Capita)"]).toFixed(2);
+        const family = parseFloat(data["Family"]).toFixed(2);
+        const health = parseFloat(data["Health (Life Expectancy)"]).toFixed(2);
+        const freedom = parseFloat(data["Freedom"]).toFixed(2);
+        const trust = parseFloat(data["Trust (Government Corruption)"]).toFixed(2);
+        const generosity = parseFloat(data["Generosity"]).toFixed(2);
+        const other =   (parseFloat(data["Happiness Score"]) - economy - family - health - freedom - trust - generosity).toFixed(2);
+    
+            
+        if(pieCounter<=2){
+          var color = d3.scale.category10();
+
+          var arc = d3.svg.arc()
+                          .outerRadius(150)
+                          .innerRadius(70);
+
+        var pieData = [
+          { label: "Economy", value: economy },
+          { label: "Family", value: family },
+          { label: "Health", value: health },
+          { label: "Freedom", value: freedom },
+          { label: "Trust", value: trust },
+          { label: "Generosity", value: generosity },
+          { label: "Other", value: other }
+        ];
+
+        var pie = d3.layout.pie()
+                           .value(function(d) { return d.value; });
+
+        var svg = d3.select("#country-pie-chart")
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+
+        var pieArcs = svg.selectAll(".arc")
+                         .data(pie(pieData))
+                         .enter()
+                         .append("g")
+                         .attr("class", "arc")
+                         .attr("transform", "translate(" + ((pieWidth /2)+((pieCounter * 550))) + ", " + (pieHeight / 2) + ")")
+                         .style("opacity", 0);
+
+        pieArcs.append("path")
+               .attr("fill", function(d, i) { return color(i); })
+               .attr("d", arc);
+
+        pieArcs.append("text")
+               .attr("transform", function(d) { return "translate(" + arc.centroid(d) + ")"; })
+               .attr("text-anchor", "middle")
+               .text(function(d) { return d.data.label; });
+
+        svg.append("text")
+           .attr("x", (pieWidth /2)+((pieCounter * 550)))
+           .attr("y", 380)
+           .attr("text-anchor", "middle")
+           .text(data.Country + " " + selectedYear + ".");
+
+        svg.append("text")
+           .attr("x", (pieWidth /2)+((pieCounter * 550)))
+           .attr("y", 200)
+           .attr("text-anchor", "middle")
+           .text("Happiness score");
+
+        svg.append("text")
+           .attr("x", (pieWidth /2)+((pieCounter * 550)))
+           .attr("y", 220)
+           .attr("text-anchor", "middle")
+           .text(score);
+
+        pieArcs.transition() 
+               .delay((d, i) => i * 200) 
+               .style("opacity", 1);
+
+        pieCounter++;
+
+        }
+        if(pieCounter>2){
+          d3.select("#country-pie-chart").text("");
+          d3.select("#country-bar-chart").text("");
+          pieCounter=0;
+        } 
+      }
+
+      function createBarChart(data1, data2) {
+
+        const barValues = ["Economy", "Family", "Health","Freedom", "Trust","Generosity"]
+    
+        const values1 = [
+          parseFloat(data1["Economy (GDP per Capita)"]),
+          parseFloat(data1["Family"]),
+          parseFloat(data1["Health (Life Expectancy)"]),
+          parseFloat(data1["Freedom"]),
+          parseFloat(data1["Trust (Government Corruption)"]),
+          parseFloat(data1["Generosity"])
+        ];
+
+        const values2 = [
+          parseFloat(data2["Economy (GDP per Capita)"]),
+          parseFloat(data2["Family"]),
+          parseFloat(data2["Health (Life Expectancy)"]),
+          parseFloat(data2["Freedom"]),
+          parseFloat(data2["Trust (Government Corruption)"]),
+          parseFloat(data2["Generosity"])
+        ];
+
+ 
+        const barWidth = 500;
+        const barHeight = 300;
+
+ 
+        const svg = d3.select("#country-bar-chart")
+                      .append("svg")
+                      .attr("width", width)
+                      .attr("height", height)
+                      .append("g")
+                      .attr("transform", "translate(" + (barWidth/2) + "," + (barHeight/5.5)  + ")");
+    
+
+  
+        const xScale = d3.scale.ordinal()
+                               .domain(d3.range(values1.length))
+                               .rangeBands([0, barWidth], 0.1);
+
+        const yScale = d3.scale.linear()
+                               .domain([0, d3.max([...values1, ...values2])])
+                               .range([barHeight, 0]);
+
+  
+        svg.selectAll(".bar1")
+           .data(values1)
+           .enter()
+           .append("rect")
+           .attr("class", "bar1")
+           .attr("x", (_, i) => xScale(i))
+           .attr("y", d => yScale(d))
+           .attr("width", xScale.rangeBand() / 2)
+           .attr("height", 0)
+           .attr("fill", "steelblue")
+           .style("opacity", 0)
+           .transition()
+           .delay(1200)
+           .style("opacity", 1)
+           .duration(2000)
+           .attr("height", d => barHeight - yScale(d));
+
+        
+        svg.selectAll(".bar2")
+           .data(values2)
+           .enter()
+           .append("rect")
+           .attr("class", "bar2")
+           .attr("x", (_, i) => xScale(i) + xScale.rangeBand() / 2)
+           .attr("y", d => yScale(d))
+           .attr("width", xScale.rangeBand() / 2)
+           .attr("height", 0)
+           .attr("fill", "orange")
+           .transition()
+           .delay(1200)
+           .style("opacity", 1)
+           .duration(2000)
+           .attr("height", d => barHeight - yScale(d));
+
+  
+        svg.append("g")
+           .attr("class", "x-axis")
+           .attr("transform", `translate(0, ${barHeight})`)
+           .call(d3.svg.axis().scale(xScale).orient("bottom"))
+           .style("opacity",0)
+           .transition()
+           .delay(1200)
+           .style("opacity", 1)
+           .duration(700)
+           .selectAll("text")
+           .attr("dx", "1.5em")
+           .attr("dy", ".7em")
+           .style("text-anchor", "end")
+           .text((_, i) => barValues[i]);
+  
+
+
+        svg.append("g")
+           .attr("class", "y-axis")
+           .call(d3.svg.axis().scale(yScale).orient("left"))
+           .style("opacity",0)
+           .transition()
+           .delay(1200)
+           .style("opacity", 1)
+           .duration(700);
+
+
+        svg.append("text")
+           .attr("class", "x-axis-label")
+           .attr("x", barWidth / 2)
+           .attr("y", barHeight + 40)
+           .style("text-anchor", "middle")
+           .text("Comparison between 2 selected countries")
+           .style("opacity",0)
+           .transition()
+           .delay(1200)
+           .style("opacity", 1)
+           .duration(700);
+
+
+        svg.append("text")
+           .attr("class", "y-axis-label")
+           .attr("x", -barHeight / 2)
+           .attr("y", -40)
+           .attr("transform", "rotate(-90)")
+           .style("text-anchor", "middle")
+           .text("Values")
+           .style("opacity",0)
+           .transition()
+           .delay(1200)
+           .style("opacity", 1)
+           .duration(700);
+      }
+
+   </script>
+
+</body>
+</html>
