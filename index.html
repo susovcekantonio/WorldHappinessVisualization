@@ -120,6 +120,7 @@
 
       const legendValues = ["1. Very unhappy", "2. Unhappy", "3. Neutral","4. Happy", "5. Very happy"]
 
+      //creating tooltip
       const divElement = document.createElement('div');
       const parentElement = document.getElementById('country-world-container'); 
       parentElement.appendChild(divElement);
@@ -128,6 +129,7 @@
                         .attr("class", "tooltip")
                         .style("opacity", 0);
 
+      //creating year selector                  
       years.forEach(year => {
         const option = document.createElement('option');
         option.value = year;
@@ -135,17 +137,17 @@
         yearSelect.appendChild(option);
     });
 
-
+    //change year and update map
       yearSelect.addEventListener('change', function() {
         const selectedYear = this.value;
         d3.select("#country-worldmap").text("");
         updateWorldMap(selectedYear);
       });
  
-      
+      //initial map creation on startup
       updateWorldMap(years[0]);
 
-
+      //creating the map
       function updateWorldMap(selectedYear){     
         d3.json("world.json", function(error, world) {
             d3.json(`${selectedYear}.json`, function(error, happinessData) {
@@ -172,7 +174,7 @@
                             .attr("class", "county")
                             .attr("id", function(d) { return d.id; })
                             .attr("d", path) 
-                            .style("fill", function(d) {
+                            .style("fill", function(d) { //filling the map colors based on function logic and data
                               const country = happinessData.find(item => item.Country=== d.properties.name);
                               
                               if(typeof country !== 'undefined'){
@@ -186,7 +188,7 @@
                             .style("stroke", "gray")
                             .style("stroke-width", 1)
                             .style("stroke-opacity", 1)
-                            .on("mouseover",function(d){
+                            .on("mouseover",function(d){ //application of tooltip to show country
                                 d3.select(this).style("opacity", 0.5); 
                                 const country = d.properties.name;
                                 const tooltip = d3.select("#tooltip");
@@ -200,7 +202,7 @@
                                 d3.select(this).style("opacity", 1);
                                 tooltip.style("opacity", 0);
                             })
-                            .on("click", function(d) {  
+                            .on("click", function(d) {  //logic for applying charts on click
                                 const country = happinessData.find(item => item.Country=== d.properties.name);
                                 if(typeof country === 'undefined'){
                                   alert("No data on country!"); 
@@ -215,7 +217,8 @@
                                 }               
 
                             })   
-
+                
+                //legend creation          
                 const legend = svg.append('g');
                 const diameter = 15;
                 const textWidth = 210;
@@ -252,7 +255,8 @@
                         .attr("dy", ".25em")
                         .attr('font-family', 'sans-serif')
                         .text(d => legendValues[i]);
-                }     
+                }
+                //function for zooming on the map     
                 function onZoom() {
                     svg.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
                 }
@@ -260,7 +264,7 @@
         });
       }
                                        
-       
+      //logic for filling up countries according to legend 
       function fillColor(happinessScore){               
         if(happinessScore<3){
           return colors[0];
@@ -279,10 +283,12 @@
         }
       }
 
+      //creation of pie chart based on mouseclick
       function createPieChart(data,selectedYear) {
         var pieWidth = 300;
         var pieHeight = 400;
-    
+        
+        //getting out data elements
         const score = parseFloat(data["Happiness Score"]).toFixed(2);      
         const economy = parseFloat(data["Economy (GDP per Capita)"]).toFixed(2);
         const family = parseFloat(data["Family"]).toFixed(2);
@@ -292,14 +298,15 @@
         const generosity = parseFloat(data["Generosity"]).toFixed(2);
         const other =   (parseFloat(data["Happiness Score"]) - economy - family - health - freedom - trust - generosity).toFixed(2);
     
-            
+        //condition to create pie chart    
         if(pieCounter<=2){
           var color = d3.scale.category10();
 
           var arc = d3.svg.arc()
                           .outerRadius(150)
                           .innerRadius(70);
-
+        
+        //storing data elements into an array for arc itteration                  
         var pieData = [
           { label: "Economy", value: economy },
           { label: "Family", value: family },
@@ -318,6 +325,7 @@
                     .attr("width", width)
                     .attr("height", height);
 
+        //logic for creating the arcs and it's texts
         var pieArcs = svg.selectAll(".arc")
                          .data(pie(pieData))
                          .enter()
@@ -335,12 +343,14 @@
                .attr("text-anchor", "middle")
                .text(function(d) { return d.data.label; });
 
+        //creating the description below the pie chart
         svg.append("text")
            .attr("x", (pieWidth /1.5)+((pieCounter * 550)))
            .attr("y", 380)
            .attr("text-anchor", "middle")
            .text(data.Country + " " + selectedYear + ".");
 
+        //creating inner radius text
         svg.append("text")
            .attr("x", (pieWidth /1.5)+((pieCounter * 550)))
            .attr("y", 200)
@@ -353,6 +363,7 @@
            .attr("text-anchor", "middle")
            .text(score);
 
+        //logic to apply animations to each arc   
         pieArcs.transition() 
                .delay((d, i) => i * 200) 
                .style("opacity", 1);
@@ -360,6 +371,7 @@
         pieCounter++;
 
         }
+        //logic to wipe all charts to start over
         if(pieCounter>2){
           d3.select("#country-pie-chart").text("");
           d3.select("#country-bar-chart").text("");
@@ -367,10 +379,12 @@
         } 
       }
 
+      //logic to create the bar chart based on pie chart data
       function createBarChart(data1, data2) {
 
         const barValues = ["Economy", "Family", "Health","Freedom", "Trust","Generosity"]
-    
+        
+        //storing the pie data into arrays
         const values1 = [
           parseFloat(data1["Economy (GDP per Capita)"]),
           parseFloat(data1["Family"]),
@@ -411,7 +425,7 @@
                                .domain([0, d3.max([...values1, ...values2])])
                                .range([barHeight, 0]);
 
-  
+        //creation of the first pie bars with animations
         svg.selectAll(".bar1")
            .data(values1)
            .enter()
@@ -429,7 +443,7 @@
            .duration(2000)
            .attr("height", d => barHeight - yScale(d));
 
-        
+        //creation of second pie bars with animations
         svg.selectAll(".bar2")
            .data(values2)
            .enter()
@@ -446,7 +460,7 @@
            .duration(2000)
            .attr("height", d => barHeight - yScale(d));
 
-  
+        //creating the x-axis with text
         svg.append("g")
            .attr("class", "x-axis")
            .attr("transform", `translate(0, ${barHeight})`)
@@ -463,7 +477,7 @@
            .text((_, i) => barValues[i]);
   
 
-
+        //creating the y-axis
         svg.append("g")
            .attr("class", "y-axis")
            .call(d3.svg.axis().scale(yScale).orient("left"))
@@ -473,7 +487,7 @@
            .style("opacity", 1)
            .duration(700);
 
-
+        //putting text on y-axis
         svg.append("text")
            .attr("class", "y-axis-label")
            .attr("x", -barHeight / 2)
