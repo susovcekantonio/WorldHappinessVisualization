@@ -8,7 +8,18 @@
   <script src="https://d3js.org/d3.v3.min.js"></script>
   <script src="http://d3js.org/topojson.v1.min.js"></script>
 
-  <style>        
+  <style>  
+    body{
+      background-image: url(happy-family.jpeg);
+    }
+
+    #title-container{
+      width: 100%;
+      height: 50px;
+      font-size: x-large;
+      margin-bottom: 5px;
+    }
+
     #year-select{
       margin-bottom: 5px;
     }
@@ -36,31 +47,46 @@
 
     #country-pie-container {
       width: 49%;
-      height: 400px;
+      height: 475px;
+      border-radius: 25%;
       float:right;
+      background-color: aquamarine;
+      opacity: 0.9;
     }
 
     #country-pie-chart {
       width: 100%;
-      height: 100%;
+      height: 100%;     
     }
 
     #bar-chart-container {
       width: 49%;
-      height: 400px;
+      height: 450px;
       float:right;
+      background-color: #f0f0f0;
+      opacity: 0.9;
+      border-radius: 25%;
     }
 
     #country-bar-chart{
       width: 100%;
       height: 100%;
     }
-
+    #tooltip {
+      position: absolute;
+      background-color: black;
+      color: white;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
-    <h1>World Happiness</h1>
-
+    <div id="title-container">
+      <h1>World Happiness</h1>
+    </div>
+    
     <div>
       <label for="year-select">Select Year:</label>
       <select id="year-select"></select>
@@ -68,6 +94,7 @@
 
     <div id="country-world-container">
       <svg id="country-worldmap"></svg>
+      <div id="tooltip"></div>
     </div>
 
     <div id="country-pie-container">
@@ -76,6 +103,7 @@
     </div>
 
     <div id="bar-chart-container">
+      <h2>Comparison between 2 selected countries</h2>
       <svg id="country-bar-chart"></svg>
     </div>
 
@@ -89,6 +117,14 @@
       const years = ["2015", "2016","2017","2018","2019"];
 
       const legendValues = ["1. Very unhappy", "2. Unhappy", "3. Neutral","4. Happy", "5. Very happy"]
+
+      const divElement = document.createElement('div');
+      const parentElement = document.getElementById('country-world-container'); // Replace with the appropriate parent element ID
+parentElement.appendChild(divElement);
+      const tooltip = d3.select("#country-world-container")
+                        .append("div")
+                        .attr("class", "tooltip")
+                        .style("opacity", 0);
 
       years.forEach(year => {
         const option = document.createElement('option');
@@ -150,9 +186,17 @@
                             .style("stroke-opacity", 1)
                             .on("mouseover",function(d){
                                 d3.select(this).style("opacity", 0.5); 
+                                const country = d.properties.name;
+                                const tooltip = d3.select("#tooltip");
+                                tooltip.style("opacity", 1)
+      .html(country)
+      .style("left", (d3.event.pageX + 10) + "px")
+      .style("top", (d3.event.pageY + 10) + "px")
+      .style("transform", "translate(10px, -100%)");
                             })
                             .on("mouseout", function(d) {
                                 d3.select(this).style("opacity", 1);
+                                tooltip.style("opacity", 0);
                             })
                             .on("click", function(d) {  
                                 const country = happinessData.find(item => item.Country=== d.properties.name);
@@ -277,7 +321,7 @@
                          .enter()
                          .append("g")
                          .attr("class", "arc")
-                         .attr("transform", "translate(" + ((pieWidth /2)+((pieCounter * 550))) + ", " + (pieHeight / 2) + ")")
+                         .attr("transform", "translate(" + ((pieWidth /1.5)+((pieCounter * 550))) + ", " + (pieHeight / 2) + ")")
                          .style("opacity", 0);
 
         pieArcs.append("path")
@@ -290,19 +334,19 @@
                .text(function(d) { return d.data.label; });
 
         svg.append("text")
-           .attr("x", (pieWidth /2)+((pieCounter * 550)))
+           .attr("x", (pieWidth /1.5)+((pieCounter * 550)))
            .attr("y", 380)
            .attr("text-anchor", "middle")
            .text(data.Country + " " + selectedYear + ".");
 
         svg.append("text")
-           .attr("x", (pieWidth /2)+((pieCounter * 550)))
+           .attr("x", (pieWidth /1.5)+((pieCounter * 550)))
            .attr("y", 200)
            .attr("text-anchor", "middle")
            .text("Happiness score");
 
         svg.append("text")
-           .attr("x", (pieWidth /2)+((pieCounter * 550)))
+           .attr("x", (pieWidth /1.5)+((pieCounter * 550)))
            .attr("y", 220)
            .attr("text-anchor", "middle")
            .text(score);
@@ -421,19 +465,6 @@
         svg.append("g")
            .attr("class", "y-axis")
            .call(d3.svg.axis().scale(yScale).orient("left"))
-           .style("opacity",0)
-           .transition()
-           .delay(1200)
-           .style("opacity", 1)
-           .duration(700);
-
-
-        svg.append("text")
-           .attr("class", "x-axis-label")
-           .attr("x", barWidth / 2)
-           .attr("y", barHeight + 40)
-           .style("text-anchor", "middle")
-           .text("Comparison between 2 selected countries")
            .style("opacity",0)
            .transition()
            .delay(1200)
